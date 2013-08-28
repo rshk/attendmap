@@ -1,0 +1,15 @@
+# Python
+*.egg
+*.egg-info
+*.pyc
+
+# Linux
+*~
+
+# Emacs
+.\#*
+\#*\#
+/.ropeproject
+
+# Database
+*.sqlite
