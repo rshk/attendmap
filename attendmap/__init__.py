@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
+import datetime
 import json
 import os
 import re
@@ -19,8 +22,10 @@ from twython import Twython
 try:
     import attendmap.settings
 except ImportError:
-    print("Unable to find settings. Please copy attendmap/settings.example.py \n"
-          "as attendmap/settings.py, configure it and re-run setup.py install..")
+    print("Unable to find settings. Please copy "
+          "attendmap/settings.example.py \n"
+          "as attendmap/settings.py, configure it and re-run "
+          "setup.py install..")
     sys.exit(1)
 
 SEARCH_QUERY = attendmap.settings.SEARCH_QUERY
@@ -108,6 +113,7 @@ _cached_db_connection = None
 
 
 def get_db_connection():
+    """Returns a (cached) database connection"""
     global _cached_db_connection
     if _cached_db_connection is not None:
         return _cached_db_connection
@@ -118,6 +124,7 @@ def get_db_connection():
 
 
 def var_get(name, default=None):
+    """Get a variable from the key/value store"""
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT * FROM variables WHERE name=?", (name,))
@@ -129,35 +136,46 @@ def var_get(name, default=None):
 
 
 def var_set(name, value):
+    """Set a variable in the key/value store"""
     conn = get_db_connection()
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO variables (name, value) VALUES (?, ?)", (name, value))
+        c.execute("INSERT INTO variables (name, value) VALUES (?, ?)",
+                  (name, value))
     except sqlite3.IntegrityError:
         c.execute("UPDATE variables SET value=? WHERE name=?", (value, name))
     conn.commit()
 
 
 def var_del(name):
+    """Delete a variable from the key/value store"""
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("DELETE FROM variables WHERE name=?", (name,))
     conn.commit()
 
 
-def store_tweet(tweet):
+def store_tweet(tweet, extra=None):
+    """Store a tweet in the database"""
+
+    if extra is None:
+        extra = {}
     conn = get_db_connection()
     c = conn.cursor()
+
+    fmt = "%a %b %d %H:%M:%S +0000 %Y"
+    tweet_date = datetime.datetime.strptime(tweet['created_at'], fmt)
+
     c.execute("""
     INSERT INTO tweets
         (id, screen_name, name, date, text, city, lon, lat, orig_tweet)
     VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?);
+        (?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (
         tweet['id'],
-        tweet['screen_name'],
-        tweet['name'],
-        tweet['created'],
+        tweet['user']['screen_name'],
+        tweet['user']['name'],
+        tweet_date,
         tweet['text'],
         extra.get('city'),
         extra.get('coordinates', (None, None))[0],
@@ -198,7 +216,7 @@ def init_twitter():
 
 def geolocate_place(place_text):
     """
-    Retrieves the (long, lat) coordinates of a place, by
+    Retrieves the (lon, lat) coordinates of a place, by
     querying the geonames web service.
     """
 
@@ -207,7 +225,8 @@ def geolocate_place(place_text):
         'q': place_text,
         'maxRows': 1,
     })
-    response = requests.get("http://api.geonames.org/searchJSON?{}".format(params))
+    response = requests.get(
+        "http://api.geonames.org/searchJSON?{}".format(params))
     resp_data = response.json()['geonames'][0]
     loc = float(resp_data['lng']), float(resp_data['lat'])
     return loc
@@ -216,76 +235,141 @@ def geolocate_place(place_text):
 def scan_new_tweets():
     ## Will search for new tweets, where "new" means more recent
     ## than the stored max_tweet_id
+
+    twitter_max_id = var_get('twitter_max_id')
+    query_args = {}
+    if twitter_max_id is not None:
+        query_args['since_id'] = twitter_max_id
+
+    twitter = init_twitter()
+    result = twitter.search(
+        q=SEARCH_QUERY,
+        **query_args)
+
+    for tweet in result['statuses']:
+        print("New tweet: {}: {!r}".format(tweet['id'], tweet['text']))
+        try:
+            store_tweet(tweet)
+        except sqlite3.IntegrityError:
+            warnings.warn("Duplicate tweet: {}".format(tweet['id']))
+
+    var_set('twitter_max_id', result['search_metadata']['max_id'])
+
+
+def get_tweet_location(tweet):
+    """
+    Try to get location from tweet, either extracting from text
+    or associated coordinates.
+    """
+
+    text_info = match_tweet_text(tweet['text'])
+
+    if text_info and text_info.get('city'):
+        try:
+            lon, lat = geolocate_place(text_info['city'])
+        except:
+            pass
+        else:
+            return {
+                'lon': lon,
+                'lat': lat,
+                'city': text_info['city'],
+            }
+
+    try:
+        lon, lat = tweet['coordinates']['coordinates']
+    except:
+        pass
+    else:
+        return {'lon': lon, 'lat': lat}
+
+
+def geolocate_tweets(only_new=True):
+    """
+    Update geolocation information associated with tweets.
+    """
+
+    if only_new:
+        query = "SELECT * FROM tweets WHERE lon IS NULL OR lat IS NULL"
+    else:
+        query = "SELECT * FROM tweets"
+
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(query)
+    rows = c.fetchall()
+
+    for row in rows:
+        ## If we have a city in the tweet text, geolocate that
+        ## Else, if the tweet has associated coordinates, use them
+
+        print("Geolocating tweet: {}".format(row['id']))
+
+        tweet = json.loads(row['orig_tweet'])
+        tweet_location = get_tweet_location(tweet)
+
+        if tweet_location is not None:
+            if 'city' in tweet_location:
+                print("    > City found in text")
+                c.execute("UPDATE tweets SET city=? WHERE id=?",
+                          (tweet_location['city'], row['id']))
+                conn.commit()
+            else:
+                print("    > Location from coordinates")
+            c.execute("UPDATE tweets SET lon=?, lat=? WHERE id=?",
+                      (tweet_location['lon'],
+                       tweet_location['lat'],
+                       row['id']))
+            conn.commit()
+
+
+def export_csv():
+    import csv
+    import io
+    b = io.BytesIO()
+    w = csv.writer(b)
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM tweets")
+    for row in c.fetchall():
+        w.writerow((
+            row['id'],
+            row['name'].encode('utf-8'),
+            row['screen_name'].encode('utf-8'),
+            row['text'].encode('utf-8'),
+            (row['city'] or '').encode('utf-8'),
+            row['lon'],
+            row['lat']
+        ))
+    return b.getvalue()
+
+
+def export_json():
+    obj = []
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM tweets")
+    for row in c.fetchall():
+        obj.append({
+            'id': row['id'],
+            'name': row['name'],
+            'screen_name': row['screen_name'],
+            'text': row['text'],
+            'city': row['city'],
+            'coordinates': {
+                'lon': row['lon'],
+                'lat': row['lat'],
+            }
+        })
+    return json.dumps(obj)
+
+
+def export_geojson():
     pass
 
 
-command_help = """
-Commands:
-
-    update
-        Updates tweets in the database by querying the API
-
-    shell
-        Used to launch an interactive shell, using ipython.
-        Just run: ``ipython -i get_tweets.py shell``
-
-    help
-        Show this help message
-"""
-
-
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        command = sys.argv[1]
-    else:
-        command = 'help'
-
-    if command == 'help':
-        print command_help
-        sys.exit()
-
-    elif command == 'shell':
-        pass  # We're done here
-
-    else:
-        raise ValueError("Unknown command {}".format(command))
-
-
-# twitter = init_twitter()
-
-# tweets = twitter.search(q=SEARCH_QUERY)
-# for tweet in tweets['statuses']:
-#     #print tweet
-#     author = tweet['user']['screen_name']
-#     author_name = tweet['user']['name']
-#     text = tweet['text']
-#     #data = TWEET_MATCH_RE.match(text)
-#     data = match_tweet_text(text)
-
-#     if data:
-#         loc = None
-
-#         if data.get('city'):
-#             try:
-#                 loc = geolocate_place(data['city'])
-#             except:
-#                 ## Print the exception but resume..
-#                 traceback.print_exc()
-
-#         if (loc is None) and tweet['coordinates']:
-#             try:
-#                 loc = tuple(tweet['coordinates']['coordinates'])
-#             except KeyError:
-#                 pass
-#             except:
-#                 traceback.print_exc()
-
-#         ## todo: extract location, either from the "from" field
-#         ## or tweet coordinates
-#         print u"{author} ({author_name}): {text}".format(
-#             author=author, author_name=author_name, text=text)
-#         print u"    >> from {}".format(loc)
-
-#     else:
-#         print u"Skipped: {author} ({author_name}): {text}".format(
-#             author=author, author_name=author_name, text=text)
+exporters = {
+    'csv': export_csv,
+    'json': export_json,
+    'geojson': export_geojson,
+}
