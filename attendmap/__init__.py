@@ -323,11 +323,11 @@ def geolocate_tweets(only_new=True):
             conn.commit()
 
 
-def export_csv():
+def export_csv(delimiter=','):
     import csv
     import io
     b = io.BytesIO()
-    w = csv.writer(b)
+    w = csv.writer(b, delimiter=delimiter)
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT * FROM tweets")
@@ -394,6 +394,7 @@ def export_geojson():
 
 exporters = {
     'csv': export_csv,
+    'csv-tab': lambda: export_csv(delimiter="\t"),
     'json': export_json,
     'geojson': export_geojson,
 }
