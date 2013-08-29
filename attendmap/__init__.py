@@ -324,6 +324,7 @@ def geolocate_tweets(only_new=True):
 
 
 def export_csv(delimiter=','):
+    """Export all tweets as CSV"""
     import csv
     import io
     b = io.BytesIO()
@@ -345,6 +346,7 @@ def export_csv(delimiter=','):
 
 
 def export_json():
+    """Export all tweets as a JSON object"""
     obj = []
     conn = get_db_connection()
     c = conn.cursor()
@@ -365,6 +367,7 @@ def export_json():
 
 
 def export_geojson():
+    """Export all tweets as a GeoJSON file"""
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT * FROM tweets ORDER BY id ASC")
