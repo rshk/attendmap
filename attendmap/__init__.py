@@ -365,7 +365,31 @@ def export_json():
 
 
 def export_geojson():
-    pass
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM tweets")
+    obj = {
+        'type': 'FeatureCollection',
+        'features': [],
+    }
+    for i, row in enumerate(c.fetchall()):
+        if not (row['lon'] and row['lat']):
+            continue
+        obj['features'].append({
+            'type': 'Feature',
+            'id': i,
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [row['lon'], row['lat']],
+            },
+            'properties': {
+                'user_screen_name': row['screen_name'],
+                'user_name': row['name'],
+                'text': row['text'],
+                'city': row['city'],
+            },
+    })
+    return json.dumps(obj)
 
 
 exporters = {
