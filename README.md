@@ -53,3 +53,14 @@ Tests are coming soon, anyways you'll just have to run::
     python setup.py test
 
 (or install py.test and run it on the project..)
+
+
+## Previewing on a map
+
+If you want to show your tweets on a map, just::
+
+    cd map_preview
+    ./update.sh
+    ./serve.sh
+
+Then visit http://127.0.0.1:8000

@@ -1,0 +1,63 @@
+<html><head>
+    <title>GeoJson Tweets map</title>
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.6.4/leaflet.css" />
+    <!--[if lte IE 8]>
+	<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.6.4/leaflet.ie.css" />
+    <![endif]-->
+    <script src="http://cdn.leafletjs.com/leaflet-0.6.4/leaflet.js"></script>
+    <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+    <script src="http://code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+    <style>
+      #map {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+      }
+    </style>
+</head><body>
+    <div id="map"></div>
+    <script type="text/javascript">
+      //------------------------------------------------------------
+      // Note: please register your own key at http://cloudmade.com
+      // if you plan on using this in production!
+      // Keys are public anyways, but please be polite.
+      //------------------------------------------------------------
+      var cloudMadeApiKey = 'c2dff9eefb6747c89d3371e5431b9936';
+
+      var entityMap = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': '&quot;',
+        "'": '&#39;',
+        "/": '&#x2F;'
+      };
+      function escapeHtml(string) {
+        return String(string).replace(/[&<>"'\/]/g, function (s) {
+          return entityMap[s];
+        });
+      }
+      $(function(){
+        var map = window.map = L.map('map').setView([42.098, 11.491], 5);
+        L.tileLayer(
+          'http://{s}.tile.cloudmade.com/' + cloudMadeApiKey + '/997/256/{z}/{x}/{y}.png',
+          {
+            attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>',
+            maxZoom: 18
+          }).addTo(map);
+          $.get('tweets.geojson', function(data){
+            L.geoJson(data, {
+              onEachFeature: function (feature, layer) {
+                var props = feature.properties;
+                var text = "<strong>" + escapeHtml(props.user_name) + "</strong> <em>@" +
+                  escapeHtml(props.user_screen_name) + "</em>: " +
+	          escapeHtml(props.text);
+                layer.bindPopup(text);
+              }
+            }).addTo(map);
+          }, 'json');
+      });
+    </script>
+</body></html>
