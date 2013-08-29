@@ -330,7 +330,7 @@ def export_csv(delimiter=','):
     w = csv.writer(b, delimiter=delimiter)
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT * FROM tweets")
+    c.execute("SELECT * FROM tweets ORDER BY id ASC")
     for row in c.fetchall():
         w.writerow((
             row['id'],
@@ -348,7 +348,7 @@ def export_json():
     obj = []
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT * FROM tweets")
+    c.execute("SELECT * FROM tweets ORDER BY id ASC")
     for row in c.fetchall():
         obj.append({
             'id': row['id'],
@@ -367,7 +367,7 @@ def export_json():
 def export_geojson():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT * FROM tweets")
+    c.execute("SELECT * FROM tweets ORDER BY id ASC")
     obj = {
         'type': 'FeatureCollection',
         'features': [],
