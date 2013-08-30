@@ -71,8 +71,7 @@ if __name__ == '__main__':
 
         else:
             if fmt in exporters:
-                export_all = True if len(args) > 1 and args[1] == '--all' else False
-
+                export_all = '--all' in args
                 print(exporters[fmt](export_all=export_all))
 
             else:

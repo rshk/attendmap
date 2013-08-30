@@ -336,7 +336,7 @@ def export_csv(delimiter=',', export_all=False):
     c = conn.cursor()
     c.execute("SELECT * FROM tweets ORDER BY id ASC")
     for row in c.fetchall():
-        if not ( (row['lon'] and row['lat']) or export_all ):
+        if not (export_all or (row['lon'] and row['lat'])):
             continue
         w.writerow((
             row['id'],
@@ -359,8 +359,8 @@ def export_json(export_all=False):
     c = conn.cursor()
     c.execute("SELECT * FROM tweets ORDER BY id ASC")
     for row in c.fetchall():
-        if not ( (row['lon'] and row['lat']) or export_all ):
-           continue
+        if not (export_all or (row['lon'] and row['lat'])):
+            continue
         obj.append({
             'id': row['id'],
             'name': row['name'],
@@ -387,7 +387,7 @@ def export_geojson(export_all=False):
         'features': [],
     }
     for i, row in enumerate(c.fetchall()):
-        if not ( (row['lon'] and row['lat']) or export_all ):
+        if not (export_all or (row['lon'] and row['lat'])):
             continue
         obj['features'].append({
             'type': 'Feature',
@@ -402,13 +402,13 @@ def export_geojson(export_all=False):
                 'text': row['text'],
                 'city': row['city'],
             },
-    })
+        })
     return json.dumps(obj)
 
 
 exporters = {
     'csv': export_csv,
-    'csv-tab': lambda export_all: export_csv(delimiter="\t",export_all=export_all),
+    'csv-tab': lambda eall: export_csv(delimiter="\t", export_all=eall),
     'json': export_json,
     'geojson': export_geojson,
 }
