@@ -323,16 +323,21 @@ def geolocate_tweets(only_new=True):
             conn.commit()
 
 
-def export_csv(delimiter=','):
-    """Export all tweets as CSV"""
+def export_csv(delimiter=',', export_all=False):
+    """Export all tweets as CSV. Only tweets with coordinates
+       are exported by default.
+    """
     import csv
     import io
+
     b = io.BytesIO()
     w = csv.writer(b, delimiter=delimiter)
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT * FROM tweets ORDER BY id ASC")
     for row in c.fetchall():
+        if not ( (row['lon'] and row['lat']) or export_all ):
+            continue
         w.writerow((
             row['id'],
             row['name'].encode('utf-8'),
@@ -345,13 +350,17 @@ def export_csv(delimiter=','):
     return b.getvalue()
 
 
-def export_json():
-    """Export all tweets as a JSON object"""
+def export_json(export_all=False):
+    """Export tweets as a JSON object. Only tweets with coordinates
+       are exported by default.
+    """
     obj = []
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT * FROM tweets ORDER BY id ASC")
     for row in c.fetchall():
+        if not ( (row['lon'] and row['lat']) or export_all ):
+           continue
         obj.append({
             'id': row['id'],
             'name': row['name'],
@@ -366,8 +375,10 @@ def export_json():
     return json.dumps(obj)
 
 
-def export_geojson():
-    """Export all tweets as a GeoJSON file"""
+def export_geojson(export_all=False):
+    """Export all tweets as a GeoJSON file. Only tweets with coordinates
+       are exported by default.
+    """
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT * FROM tweets ORDER BY id ASC")
@@ -376,7 +387,7 @@ def export_geojson():
         'features': [],
     }
     for i, row in enumerate(c.fetchall()):
-        if not (row['lon'] and row['lat']):
+        if not ( (row['lon'] and row['lat']) or export_all ):
             continue
         obj['features'].append({
             'type': 'Feature',
@@ -397,7 +408,7 @@ def export_geojson():
 
 exporters = {
     'csv': export_csv,
-    'csv-tab': lambda: export_csv(delimiter="\t"),
+    'csv-tab': lambda export_all: export_csv(delimiter="\t",export_all=export_all),
     'json': export_json,
     'geojson': export_geojson,
 }

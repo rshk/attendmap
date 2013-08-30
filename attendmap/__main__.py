@@ -19,8 +19,10 @@ Commands:
         Continuously update/geolocate tweets, then sleep for a while.
         Default time is 5 minutes.
 
-    export { <format> | help }
-        Export all the tweets data in the specified format.
+    export { <format> | help } [--all]
+        Export the tweets data in the specified format. Only tweets with
+        geographical information are exported (if --all is specified all
+        tweets are exported).
 
     shell
         Used to launch an interactive shell, using ipython.
@@ -69,7 +71,9 @@ if __name__ == '__main__':
 
         else:
             if fmt in exporters:
-                print(exporters[fmt]())
+                export_all = True if len(args) > 1 and args[1] == '--all' else False
+
+                print(exporters[fmt](export_all=export_all))
 
             else:
                 raise ValueError("Unsupported format: {}".format(fmt))
