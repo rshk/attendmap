@@ -19,10 +19,14 @@ Commands:
         Continuously update/geolocate tweets, then sleep for a while.
         Default time is 5 minutes.
 
-    export { <format> | help } [--all]
-        Export the tweets data in the specified format. Only tweets with
-        geographical information are exported (if --all is specified all
-        tweets are exported).
+    export { <format> | help } [--all] [--latest]
+        Export the tweets data in the specified format.
+
+        Only tweets with associated coordinates are exported, unless
+        --all is specified.
+
+        If the --latest flag is specified, only the most recent location
+        for each user will be exported.
 
     shell
         Used to launch an interactive shell, using ipython.
@@ -58,21 +62,21 @@ if __name__ == '__main__':
         geolocate_tweets('--all' not in args)
 
     elif command == 'export':
-        from . import exporters
+        from . import serializers, export_tweets
 
-        try:
-            fmt = args[0]
-            if fmt == 'help':
-                # Trick to trigger help
-                raise IndexError
-
-        except IndexError:
-            print("Supported formats: {}".format(' '.join(exporters.keys())))
+        if (len(args) < 1) or (args[0] == 'help'):
+            print("Supported formats: {}".format(' '.join(serializers.keys())))
 
         else:
-            if fmt in exporters:
-                export_all = '--all' in args
-                print(exporters[fmt](export_all=export_all))
+            fmt = args[0]
+            if fmt in serializers:
+                require_coordinates = '--all' not in args
+                only_latest = '--latest' in args
+                serializer = serializers[fmt]
+                tweets = export_tweets(
+                    require_coordinates='--all' not in args,
+                    only_latest='--latest' in args)
+                print(serializer(tweets))
 
             else:
                 raise ValueError("Unsupported format: {}".format(fmt))

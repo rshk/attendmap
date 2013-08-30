@@ -3,7 +3,9 @@
 
 from __future__ import print_function
 
+import csv
 import datetime
+import io
 import json
 import os
 import re
@@ -37,9 +39,9 @@ TWEET_MATCH_REGS = [
 APP_KEY = attendmap.settings.APP_KEY
 APP_SECRET = attendmap.settings.APP_SECRET
 GEONAMES_USER = attendmap.settings.GEONAMES_USER
-
-DATABASE_NAME = attendmap.settings.DATABASE_NAME
-DATABASE_NAME = os.path.join(os.path.dirname(__file__), DATABASE_NAME)
+DATABASE_NAME = os.path.join(
+    os.path.dirname(__file__),
+    attendmap.settings.DATABASE_NAME)
 
 
 def clean_tweet_text(text):
@@ -50,7 +52,8 @@ def clean_tweet_text(text):
     """
     if not isinstance(text, unicode):
         text = unicode(text, encoding='utf-8')
-    text = u' '.join(text.lower().split())
+    ## Remove double spaces
+    text = u' '.join(text.split()).strip()
     try:
         import unidecode
     except ImportError:
@@ -264,7 +267,13 @@ def get_tweet_location(tweet):
 
     text_info = match_tweet_text(tweet['text'])
 
-    if text_info and text_info.get('city'):
+    if text_info is None:
+        ## This tweet didn't match.
+        return None
+
+    if text_info.get('city'):
+        ## This tweet has an associated city (in the text).
+        ## Try to geolocate it..
         try:
             lon, lat = geolocate_place(text_info['city'])
         except:
@@ -277,6 +286,7 @@ def get_tweet_location(tweet):
             }
 
     try:
+        ## Try to extract coordinates information from the tweet
         lon, lat = tweet['coordinates']['coordinates']
     except:
         pass
@@ -323,25 +333,55 @@ def geolocate_tweets(only_new=True):
             conn.commit()
 
 
-def export_csv(delimiter=',', export_all=False):
+def export_tweets(
+        require_coordinates=True,
+        only_latest=False):
+    """
+    Export tweets from database.
+    This is just a wrapper around the SQL query.
+    """
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    query = []
+
+    if only_latest:
+        query.append("SELECT max(id) as max_id, *")
+    else:
+        query.append("SELECT *")
+
+    query.append("FROM tweets")
+
+    if require_coordinates:
+        query.append("WHERE lat IS NOT NULL AND lon IS NOT NULL")
+
+    if only_latest:
+        query.append("GROUP BY screen_name")
+
+    query.append("ORDER BY id ASC")
+
+    query = " ".join(query)
+
+    c.execute(query)
+    for row in c.fetchall():
+        if require_coordinates and not (row['lon'] and row['lat']):
+            ## Skip this tweet
+            continue
+        yield row
+
+
+def export_csv(tweets, delimiter=','):
     """Export all tweets as CSV. Only tweets with coordinates
        are exported by default.
     """
-    import csv
-    import io
-
     b = io.BytesIO()
     w = csv.writer(b, delimiter=delimiter)
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("SELECT * FROM tweets ORDER BY id ASC")
-    for row in c.fetchall():
-        if not (export_all or (row['lon'] and row['lat'])):
-            continue
+    for row in tweets:
         w.writerow((
             row['id'],
             row['name'].encode('utf-8'),
             row['screen_name'].encode('utf-8'),
+            row['date'].encode('utf-8'),
             row['text'].encode('utf-8'),
             (row['city'] or '').encode('utf-8'),
             row['lon'],
@@ -350,17 +390,12 @@ def export_csv(delimiter=',', export_all=False):
     return b.getvalue()
 
 
-def export_json(export_all=False):
+def export_json(tweets):
     """Export tweets as a JSON object. Only tweets with coordinates
        are exported by default.
     """
     obj = []
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("SELECT * FROM tweets ORDER BY id ASC")
-    for row in c.fetchall():
-        if not (export_all or (row['lon'] and row['lat'])):
-            continue
+    for row in tweets:
         obj.append({
             'id': row['id'],
             'name': row['name'],
@@ -375,23 +410,18 @@ def export_json(export_all=False):
     return json.dumps(obj)
 
 
-def export_geojson(export_all=False):
+def export_geojson(tweets):
     """Export all tweets as a GeoJSON file. Only tweets with coordinates
        are exported by default.
     """
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("SELECT * FROM tweets ORDER BY id ASC")
     obj = {
         'type': 'FeatureCollection',
         'features': [],
     }
-    for i, row in enumerate(c.fetchall()):
-        if not (export_all or (row['lon'] and row['lat'])):
-            continue
+    for row in tweets:
         obj['features'].append({
             'type': 'Feature',
-            'id': i,
+            'id': row['id'],
             'geometry': {
                 'type': 'Point',
                 'coordinates': [row['lon'], row['lat']],
@@ -406,9 +436,9 @@ def export_geojson(export_all=False):
     return json.dumps(obj)
 
 
-exporters = {
+serializers = {
     'csv': export_csv,
-    'csv-tab': lambda eall: export_csv(delimiter="\t", export_all=eall),
+    'csv-tab': lambda tweets: export_csv(tweets, delimiter="\t"),
     'json': export_json,
     'geojson': export_geojson,
 }
