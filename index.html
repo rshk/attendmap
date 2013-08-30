@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Attendmap : Event attendance map, via Twitter" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Attendmap</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/rshk/attendmap">View on GitHub</a>
+
+          <h1 id="project_title">Attendmap</h1>
+          <h2 id="project_tagline">Event attendance map, via Twitter</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/rshk/attendmap/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/rshk/attendmap/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a name="attendmap" class="anchor" href="#attendmap"><span class="octicon octicon-link"></span></a>AttendMap</h1>
+
+<p>Some cool stuff. More info coming soon :)</p>
+
+<h2>
+<a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h2>
+
+<p>Start by cloning this repository::</p>
+
+<pre><code>git clone https://github.com/rshk/attendmap.git
+</code></pre>
+
+<p>Then, configure the application::</p>
+
+<pre><code>cd attendmap/attendmap
+cp settings.example.py settings.py
+editor settings.py
+</code></pre>
+
+<p>(you will need Twitter application keys and a valid geonames username)</p>
+
+<p>Then, install it::</p>
+
+<pre><code>cd ..
+python setup.py install
+</code></pre>
+
+<p>To see what you can do::</p>
+
+<pre><code>python -m attendmap help
+</code></pre>
+
+<h2>
+<a name="normal-execution" class="anchor" href="#normal-execution"><span class="octicon octicon-link"></span></a>Normal execution</h2>
+
+<p>Usually, you'll spanw a process like this::</p>
+
+<pre><code>python -m attendmap loop
+</code></pre>
+
+<p>And then export the data periodically from another process::</p>
+
+<pre><code>python -m attendmap export json
+</code></pre>
+
+<h2>
+<a name="debugging-shell" class="anchor" href="#debugging-shell"><span class="octicon octicon-link"></span></a>Debugging shell</h2>
+
+<p>To launch a shell for debugging (with all the functions contained
+in the package already loaded in the current scope)::</p>
+
+<pre><code>ipython -i -m attendmap shell
+</code></pre>
+
+<h2>
+<a name="testing" class="anchor" href="#testing"><span class="octicon octicon-link"></span></a>Testing</h2>
+
+<p>Tests are coming soon, anyways you'll just have to run::</p>
+
+<pre><code>python setup.py test
+</code></pre>
+
+<p>(or install py.test and run it on the project..)</p>
+
+<h2>
+<a name="previewing-on-a-map" class="anchor" href="#previewing-on-a-map"><span class="octicon octicon-link"></span></a>Previewing on a map</h2>
+
+<p>If you want to show your tweets on a map, just::</p>
+
+<pre><code>cd map_preview
+./update.sh
+./serve.sh
+</code></pre>
+
+<p>Then visit <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a></p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Attendmap maintained by <a href="https://github.com/rshk">rshk</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
