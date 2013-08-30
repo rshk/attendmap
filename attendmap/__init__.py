@@ -44,6 +44,13 @@ DATABASE_NAME = os.path.join(
     attendmap.settings.DATABASE_NAME)
 
 
+class GeonamesError(Exception):
+    """
+    A simple class to expose errors form the Geonames service.
+    """
+    pass
+
+
 def clean_tweet_text(text):
     """
     Cleanup tweet text before matching. For example, transliterates
@@ -230,9 +237,19 @@ def geolocate_place(place_text):
     })
     response = requests.get(
         "http://api.geonames.org/searchJSON?{}".format(params))
-    resp_data = response.json()['geonames'][0]
-    loc = float(resp_data['lng']), float(resp_data['lat'])
-    return loc
+
+    if response.ok:
+
+        resp_json = response.json()
+
+        if resp_json.get('geonames', None) is None:
+            # geonames returned an unexpect answer, here's an example error:
+            raise GeonamesError(resp_json['status']['message'])
+        else:
+            resp_data = response.json()['geonames'][0]
+
+        loc = float(resp_data['lng']), float(resp_data['lat'])
+        return loc
 
 
 def scan_new_tweets():
@@ -276,8 +293,12 @@ def get_tweet_location(tweet):
         ## Try to geolocate it..
         try:
             lon, lat = geolocate_place(text_info['city'])
-        except:
-            pass
+        except Exception as e:
+            print("geolocate_place raised an error geolocating "
+                  "tweet {}".format(tweet['id'])
+                 )
+            print(repr(e))
+
         else:
             return {
                 'lon': lon,
