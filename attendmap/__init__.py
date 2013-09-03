@@ -252,6 +252,36 @@ def geolocate_place(place_text):
         return loc
 
 
+def reverse_geolocate(lon, lat):
+    """
+    Retrieves the name of the nearest populated place to the point given
+    by (lon, lat) coordinates, by querying the geonames web service.
+    """
+
+    params = urllib.urlencode({
+        'username': GEONAMES_USER,
+        'lat': lat,
+        'lng': lon,
+        'maxRows': 1,
+    })
+
+    response = requests.get(
+        "http://api.geonames.org/findNearbyPlaceNameJSON?{}".format(params))
+
+    if response.ok:
+
+        resp_json = response.json()
+
+        if resp_json.get('geonames', None) is None:
+            # geonames returned an unexpect answer, here's an example error:
+            raise GeonamesError(resp_json['status']['message'])
+        else:
+            resp_data = response.json()['geonames'][0]
+
+        city = resp_data['name']
+        return city
+
+
 def scan_new_tweets():
     ## Will search for new tweets, where "new" means more recent
     ## than the stored max_tweet_id
@@ -312,7 +342,13 @@ def get_tweet_location(tweet):
     except:
         pass
     else:
-        return {'lon': lon, 'lat': lat}
+        city = reverse_geolocate(lon, lat)
+
+        return {
+                'lon': lon,
+                'lat': lat,
+                'city': city,
+        }
 
 
 def geolocate_tweets(only_new=True):
