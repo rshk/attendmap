@@ -245,8 +245,8 @@ def geolocate_place(place_text):
         if resp_json.get('geonames', None) is None:
             # geonames returned an unexpect answer, here's an example error:
             raise GeonamesError(resp_json['status']['message'])
-        else:
-            resp_data = response.json()['geonames'][0]
+
+        resp_data = response.json()['geonames'][0]
 
         loc = float(resp_data['lng']), float(resp_data['lat'])
         return loc
@@ -275,8 +275,8 @@ def reverse_geolocate(lon, lat):
         if resp_json.get('geonames', None) is None:
             # geonames returned an unexpect answer, here's an example error:
             raise GeonamesError(resp_json['status']['message'])
-        else:
-            resp_data = response.json()['geonames'][0]
+
+        resp_data = response.json()['geonames'][0]
 
         city = resp_data['name']
         return city
