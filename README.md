@@ -64,3 +64,7 @@ If you want to show your tweets on a map, just:
     ./serve.sh
 
 Then visit http://127.0.0.1:8000
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/rshk/attendmap/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
